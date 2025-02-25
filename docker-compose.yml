@@ -1,0 +1,93 @@
+services:
+  # Timescale - database
+  timescale:
+    image: timescale/timescaledb:latest-pg17
+    container_name: timescaledb
+    restart: always
+    ports:
+      - "8812:5432"
+    environment:
+      POSTGRES_PASSWORD: password
+      QDB_LINE_TCP_WRITER_WORKER_COUNT: 1
+    volumes: 
+      - ./timescale/timescale_root:/var/lib/postgresql/data
+
+  # Kafka Broker 1
+  kafka1:
+    image: confluentinc/cp-kafka:latest
+    container_name: kafka1
+    hostname: kafka1
+    ports:
+      - "9092:9092"
+      - "19003:19003"
+    volumes:
+      - kafka1-data:/var/lib/kafka/data:rw
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: controller,broker
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka1:19093,2@kafka2:19094
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      KAFKA_LISTENERS: CONTROLLER://:19093,PLAINTEXT://:9092
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka1:9092
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      # --
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 2
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 2
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      CLUSTER_ID: 'QTkwRDkzMDg3QTdFNDJCRU'
+      KAFKA_OPTS: "-XX:+PerfDisableSharedMem"  # Disable JVM performance tracking
+
+  # Kafka Broker 2
+  kafka2:
+    image: confluentinc/cp-kafka:latest
+    container_name: kafka2
+    hostname: kafka2
+    ports:
+      - "9093:9093"
+      - "19094:19094"
+    volumes:
+      - kafka2-data:/var/lib/kafka/data:rw
+    environment:
+      KAFKA_NODE_ID: 2
+      KAFKA_PROCESS_ROLES: controller,broker
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka1:19093,2@kafka2:19094
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      KAFKA_LISTENERS: CONTROLLER://:19094,PLAINTEXT://:9093
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka2:9093
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      # --
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 2
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 2
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      CLUSTER_ID: 'QTkwRDkzMDg3QTdFNDJCRU'
+      KAFKA_OPTS: "-XX:+PerfDisableSharedMem"  # Disable JVM performance tracking
+
+  # Kafka Connect
+  kafka-connect:
+    image: confluentinc/cp-kafka-connect:latest
+    container_name: kafka-connect
+    volumes:
+    - ./kafka-connect-plugins:/usr/local/share/kafka/plugins
+    ports:
+      - "8083:8083"
+    environment:
+        CONNECT_BOOTSTRAP_SERVERS: "kafka1:9092,kafka2:9093"
+        CONNECT_GROUP_ID: kafka-connect-cluster
+        CONNECT_CONFIG_STORAGE_TOPIC: kafka-connect-configs
+        CONNECT_CONFIG_STORAGE_REPLICATION_FACTOR: 2
+        CONNECT_OFFSET_STORAGE_TOPIC: kafka-connect-offsets
+        CONNECT_OFFSET_STORAGE_REPLICATION_FACTOR: 2
+        CONNECT_STATUS_STORAGE_TOPIC: kafka-connect-status
+        CONNECT_STATUS_STORAGE_REPLICATION_FACTOR: 2
+        CONNECT_KEY_CONVERTER: org.apache.kafka.connect.storage.StringConverter
+        CONNECT_VALUE_CONVERTER: org.apache.kafka.connect.storage.StringConverter
+        CONNECT_PLUGIN_PATH: "/usr/share/java,/usr/share/confluent-hub-components"
+        CONNECT_REST_ADVERTISED_HOST_NAME: kafka-connect
+        CONNECT_LISTENERS: http://0.0.0.0:8083
+    depends_on:
+      - kafka1
+      - kafka2
+
+volumes:
+  kafka1-data:
+  kafka2-data:
