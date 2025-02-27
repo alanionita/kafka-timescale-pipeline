@@ -80,10 +80,8 @@ services:
         CONNECT_STATUS_STORAGE_REPLICATION_FACTOR: 2
         CONNECT_REST_ADVERTISED_HOST_NAME: kafka-connect
         CONNECT_LISTENERS: http://0.0.0.0:8083
-        CONNECT_KEY_CONVERTER: org.apache.kafka.connect.storage.StringConverter
-        CONNECT_VALUE_CONVERTER: org.apache.kafka.connect.storage.StringConverter
-        # CONNECT_KEY_CONVERTER: "org.apache.kafka.connect.json.JsonConverter"
-        # CONNECT_VALUE_CONVERTER: "org.apache.kafka.connect.json.JsonConverter"
+        CONNECT_KEY_CONVERTER: "org.apache.kafka.connect.json.JsonConverter"
+        CONNECT_VALUE_CONVERTER: "org.apache.kafka.connect.json.JsonConverter"
         CONNECT_PLUGIN_PATH: "/usr/share/java,/usr/share/confluent-hub-components,/usr/share/kafka/plugins"
     command: 
       - bash
@@ -95,6 +93,21 @@ services:
       - kafka1
       - kafka2
 
+  # Kafka - Schema Registry
+  schema_registry:
+    image: confluentinc/cp-schema-registry:7.7.0
+    hostname: schema_registry
+    container_name: schema_registry
+    depends_on:
+      - kafka1
+      - kafka2
+    ports:
+      - "8081:8081"
+    environment:
+      SCHEMA_REGISTRY_HOST_NAME: schema_registry
+      SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS: 'kafka1:9092,kafka2:9093'
+      SCHEMA_REGISTRY_ACCESS_CONTROL_ALLOW_ORIGIN: '*'
+      SCHEMA_REGISTRY_ACCESS_CONTROL_ALLOW_METHODS: 'GET,POST,PUT,OPTIONS'
 volumes:
   kafka1-data:
   kafka2-data:
